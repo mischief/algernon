@@ -99,6 +99,47 @@ func exportBasicSystemFunctions(L *lua.LState) {
 		return 1 // number of results
 	}))
 
+	L.SetGlobal("ls", L.NewFunction(func(L *lua.LState) int {
+		cwd, _ := os.Getwd()
+		dir := path.Clean(path.Join(cwd, L.ToString(1)))
+		d, err := os.Open(dir)
+		if err != nil {
+			L.RaiseError("failed to open %q: %v", dir, err)
+		}
+		fi, err := d.Readdir(0)
+		d.Close()
+		if err != nil {
+			L.RaiseError("failed to read %q: %v", dir, err)
+		}
+
+		luaTable := L.NewTable()
+		for _, f := range fi {
+			fit := L.NewTable()
+			L.RawSet(fit, lua.LString("name"), lua.LString(f.Name()))
+			L.RawSet(fit, lua.LString("size"), lua.LNumber(f.Size()))
+			L.RawSet(fit, lua.LString("dir"), lua.LBool(f.IsDir()))
+
+			luaTable.Append(fit)
+		}
+		L.Push(luaTable)
+		return 1 // number of results
+	}))
+
+	L.SetGlobal("stat", L.NewFunction(func(L *lua.LState) int {
+		cwd, _ := os.Getwd()
+		fpath := path.Clean(path.Join(cwd, L.ToString(1)))
+		f, err := os.Stat(fpath)
+		if err != nil {
+			L.RaiseError("failed to stat %q: %v", fpath, err)
+		}
+
+		fit := L.NewTable()
+		L.RawSet(fit, lua.LString("name"), lua.LString(f.Name()))
+		L.RawSet(fit, lua.LString("size"), lua.LNumber(f.Size()))
+		L.RawSet(fit, lua.LString("dir"), lua.LBool(f.IsDir()))
+		L.Push(fit)
+		return 1 // number of results
+	}))
 }
 
 // Make functions related to HTTP requests and responses available to Lua scripts.
